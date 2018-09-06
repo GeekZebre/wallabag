@@ -82,7 +82,7 @@ class TagRepository extends EntityRepository
             ->getQuery()
             ->getArrayResult();
     }
-
+    
     /**
      * Used only in test case to get a tag for our entry.
      *

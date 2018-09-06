@@ -192,15 +192,7 @@ class ContentProxy
      */
     private function stockEntry(Entry $entry, array $content)
     {
-        // When a redirection occurs while fetching an entry
-        // we move the original url in origin_url property if empty
-        // and set the entry url with the final value
-        if (!empty($content['url']) && $entry->getUrl() !== $content['url']) {
-            if (empty($entry->getOriginUrl())) {
-                $entry->setOriginUrl($entry->getUrl());
-            }
-            $entry->setUrl($content['url']);
-        }
+        $this->updateOriginUrl($entry, $content['url']);
 
         $this->setEntryDomainName($entry);
 
@@ -263,6 +255,46 @@ class ContentProxy
                 'entry_url' => $content['url'],
                 'error_msg' => $e->getMessage(),
             ]);
+        }
+    }
+
+    /**
+     * Update the origin_url field when a redirection occurs
+     * This field is set if it is empty and new url does not match ignore list
+     * 
+     * @param Entry $entry
+     * @param string $url
+     */
+    private function updateOriginUrl(Entry $entry, $url)
+    {
+        if (!empty($url) && $entry->getUrl() !== $url) {
+            $parsed_entry_url = parse_url($entry->getUrl());
+            $parsed_content_url = parse_url($url);
+
+            $diff_ec = array_diff_assoc($parsed_entry_url, $parsed_content_url);
+            $diff_ce = array_diff_assoc($parsed_content_url, $parsed_entry_url);
+
+            $diff = array_merge($diff_ec, $diff_ce);
+            sort($diff);
+            
+            switch (array_keys($diff)) {
+                case ['path']:
+                    if ($parsed_content_url['path'] === $parsed_entry_url['path'] . '/') {
+                        // diff is trailing slash, we only replace the url of the entry
+                        $entry->setUrl($url);
+                    }
+                    break;
+                case ['fragment']:
+                case ['query']:
+                    // noop
+                    break;
+                default:
+                    if (empty($entry->getOriginUrl())) {
+                        $entry->setOriginUrl($entry->getUrl());
+                    }
+                    $entry->setUrl($url);
+                    break;
+            }
         }
     }
 

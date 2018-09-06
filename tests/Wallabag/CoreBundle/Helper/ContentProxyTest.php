@@ -531,7 +531,64 @@ class ContentProxyTest extends TestCase
         $this->assertSame('1.1.1.1', $entry->getDomainName());
     }
 
-    public function testWithChangedUrl()
+    public function dataForChangedUrl()
+    {
+        return [
+            'normal' => [
+                'http://0.0.0.0',
+                '',
+                'http://1.1.1.1',
+                'http://1.1.1.1',
+                'http://0.0.0.0',
+                '1.1.1.1'
+            ],
+            'origin already set' => [
+                'http://0.0.0.0',
+                'http://hello',
+                'http://1.1.1.1',
+                'http://1.1.1.1',
+                'http://hello',
+                '1.1.1.1'
+            ],
+            'trailing slash' => [
+                'https://example.com/hello-world',
+                '',
+                'https://example.com/hello-world/',
+                'https://example.com/hello-world/',
+                '',
+                'example.com'
+            ],
+            'no query string in fetched content' => [
+                'https://example.org/hello?world=1',
+                '',
+                'https://example.org/hello',
+                'https://example.org/hello?world=1',
+                '',
+                'example.org'
+            ],
+            'query string in fetched content' => [
+                'https://example.org/hello',
+                '',
+                'https://example.org/hello?world=1',
+                'https://example.org/hello',
+                '',
+                'example.org'
+            ],
+            'fragment in fetched content' => [
+                'https://example.org/hello',
+                '',
+                'https://example.org/hello#world',
+                'https://example.org/hello',
+                '',
+                'example.org'
+            ]
+        ];
+    }
+
+    /**
+     * @dataProvider dataForChangedUrl
+     */
+    public function testWithChangedUrl($entry_url, $origin_url, $content_url, $expected_entry_url, $expected_origin_url, $expected_domain)
     {
         $tagger = $this->getTaggerMock();
         $tagger->expects($this->once())
@@ -541,20 +598,20 @@ class ContentProxyTest extends TestCase
         $entry = new Entry(new User());
         $proxy->updateEntry(
             $entry,
-            'http://0.0.0.0',
+            $entry_url,
             [
                 'html' => false,
                 'title' => '',
-                'url' => 'http://1.1.1.1',
+                'url' => $content_url,
                 'content_type' => '',
                 'language' => '',
             ],
             true
         );
 
-        $this->assertSame('http://1.1.1.1', $entry->getUrl());
-        $this->assertSame('1.1.1.1', $entry->getDomainName());
-        $this->assertSame('http://0.0.0.0', $entry->getOriginUrl());
+        $this->assertSame($expected_entry_url, $entry->getUrl());
+        $this->assertSame($expected_domain, $entry->getDomainName());
+        $this->assertSame($expected_origin_url, $entry->getOriginUrl());
     }
 
     private function getTaggerMock()
